@@ -21,14 +21,8 @@ impl Relu {
     }
 
     fn compute_in_out(&self, input: &Matrix, above: &Matrix) -> Matrix {
-        let mut output = Matrix::new(input.rows, input.columns);
-        for i in 0..input.rows {
-            for j in 0..input.columns {
-                let value = if input.at(i, j) > self.threshold { above.at(i, j) } else { self.threshold };
-                output.set_at(i, j, value);
-            }
-        }
-        output
+        let op = |v, row, col| if v > self.threshold { above.at(row, col) } else { self.threshold };
+        input.transform_with_index(op)
     }
 }
 
@@ -37,8 +31,7 @@ impl Layer for Relu {
         self.compute_in_out(incoming, incoming)
     }
 
-    #[allow(unused_variables)]
-    fn delta(&self, incoming: &Matrix, outgoing: &Matrix, above: &Matrix) -> Matrix {
+    fn delta(&self, incoming: &Matrix, _outgoing: &Matrix, above: &Matrix) -> Matrix {
         self.compute_in_out(incoming, above)
     }
 }
@@ -80,14 +73,20 @@ impl Layer for Dense {
         incoming.matmul(&self.weights)
     }
 
-    #[allow(unused_variables)]
-    fn delta(&self, incoming: &Matrix, outgoing: &Matrix, above: &Matrix) -> Matrix {
+    fn delta(&self, _incoming: &Matrix, _outgoing: &Matrix, above: &Matrix) -> Matrix {
         above.matmul(&self.weights.t())
     }
 }
 
 #[allow(dead_code)]
-struct Softmax;
+pub struct Softmax;
+
+#[allow(dead_code)]
+impl Softmax {
+    pub fn new() -> Softmax {
+        Softmax {}
+    }
+}
 
 #[allow(dead_code)]
 impl Layer for Softmax {
@@ -95,8 +94,9 @@ impl Layer for Softmax {
         return functions::softmax(incoming);
     }
 
-    #[allow(unused_variables)]
-    fn delta(&self, incoming: &Matrix, outgoing: &Matrix, above: &Matrix) -> Matrix {
-        return functions::softmax(incoming);
+    fn delta(&self, _incoming: &Matrix, outgoing: &Matrix, above: &Matrix) -> Matrix {
+        let delta = outgoing.mul(above);
+        let sums = delta.reduce_rows(0.0, |acc, v| acc + v);
+        delta.transform_with_index(|v, row, col| v - outgoing.at(row, col) * sums.at(row, 0))
     }
 }
