@@ -21,16 +21,6 @@ fn functions_softmax() {
 }
 
 #[test]
-fn functions_log_sum_exp() {
-    let input = Matrix::new_from(1, 7, vec![1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 3.0]);
-    let output = nn::functions::log_sum_exp(&input);
-    let expected = 4.74479212;
-    assert_eq!(output.rows, 1);
-    assert_eq!(output.columns, 1);
-    assert!((output.at(0, 0) - expected).abs() < 1e-5);
-}
-
-#[test]
 fn functions_log_softmax() {
     let input = Matrix::new_from(2, 10, vec![
         -1.74014, -1.22728, 0.14055, -0.590518, 0.234221,
