@@ -1,5 +1,6 @@
 extern crate simple_nn;
 
+use std::str::FromStr;
 use simple_nn::{Matrix};
 
 #[test]
@@ -21,7 +22,7 @@ fn matrix_creation_from_vector() {
 fn matrix_add() {
     let matrix = Matrix::new_from(2, 3, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
     let other = Matrix::new_from(2, 3, vec![1.0, 2.0, -1.0, 3.0, -2.0, 0.0]);
-    let result = matrix.add(&other);
+    let result = &matrix + &other;
     let expected = Matrix::new_from(2, 3, vec![1.1, 2.2, -0.7, 3.4, -1.5, 0.6]);
     assert_eq!(expected, result);
 }
@@ -31,14 +32,14 @@ fn matrix_add() {
 fn matrix_add_bad_size() {
     let matrix = Matrix::new_from(2, 3, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
     let other = Matrix::new_from(2, 2, vec![1.0, 2.0, -1.0, 3.0]);
-    matrix.add(&other);
+    &matrix + &other;
 }
 
 #[test]
 fn matrix_sub() {
     let matrix = Matrix::new_from(2, 3, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
     let other = Matrix::new_from(2, 3, vec![1.0, 2.0, -1.0, 3.0, -2.0, 0.0]);
-    let result = matrix.sub(&other);
+    let result = &matrix - &other;
     let expected = Matrix::new_from(2, 3, vec![-0.9, -1.8, 1.3, -2.6, 2.5, 0.6]);
     assert_eq!(result, expected);
 }
@@ -47,7 +48,7 @@ fn matrix_sub() {
 fn matrix_mul() {
     let matrix = Matrix::new_from(2, 3, vec![8.0, 9.0, 12.0, 15.0, 21.0, 42.0]);
     let other = Matrix::new_from(2, 3, vec![2.0, 3.0, 2.0, 3.0, 3.0, 7.0]);
-    let result = matrix.mul(&other);
+    let result = &matrix * &other;
     let expected = Matrix::new_from(2, 3, vec![16.0, 27.0, 24.0, 45.0, 63.0, 294.0]);
     assert_eq!(result, expected);
 }
@@ -56,7 +57,7 @@ fn matrix_mul() {
 fn matrix_div() {
     let matrix = Matrix::new_from(2, 3, vec![8.0, 9.0, 12.0, 15.0, 21.0, 42.0]);
     let other = Matrix::new_from(2, 3, vec![2.0, 3.0, 2.0, 3.0, 3.0, 7.0]);
-    let result = matrix.div(&other);
+    let result = &matrix / &other;
     let expected = Matrix::new_from(2, 3, vec![4.0, 3.0, 6.0, 5.0, 7.0, 6.0]);
     assert_eq!(result, expected);
 }
@@ -76,4 +77,11 @@ fn matrix_t() {
     let result = matrix.t();
     let expected = Matrix::new_from(3, 2, vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
     assert_eq!(result, expected);
+}
+
+#[test]
+fn matrix_from_str() {
+    let string = "1.1 2 3 4\n5 6 7.70e+01 8\n9 10 11 12";
+    let expected = Matrix::new_from(3, 4, vec![1.1, 2.0, 3.0, 4.0, 5.0, 6.0, 7.70e+01, 8.0, 9.0, 10.0, 11.0, 12.0]);
+    assert_eq!(Matrix::from_str(string).unwrap(), expected);
 }

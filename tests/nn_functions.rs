@@ -56,3 +56,14 @@ fn functions_softmax_cross_entropy() {
         assert!((output.at(i, 0) - expected[i]).abs() < 1e-5);
     }
 }
+
+#[test]
+fn functions_cross_entropy_from_probs() {
+    let input = Matrix::new_from(1, 7, vec![
+         0.02364054, 0.06426166, 0.1746813, 0.474833, 0.02364054, 0.06426166, 0.1746813 ]);
+    let labels = Matrix::one_hot(10, vec![1]);
+    let expected = 2.74479212;
+    let output = nn::functions::cross_entropy_from_probs(&input, &labels);
+    println!("{}", output);
+    assert!((output.at(0, 0) - expected).abs() < 1e-5);
+}

@@ -1,4 +1,4 @@
-use std;
+use std::{str, fmt, ops};
 use rand;
 use rand::distributions::{IndependentSample, Range};
 
@@ -9,7 +9,6 @@ pub struct Matrix {
     elements: Vec<f64>
 }
 
-#[allow(dead_code)]
 impl Matrix {
     pub fn new(rows: usize, columns: usize) -> Matrix {
         let mut elems = Vec::with_capacity(rows * columns);
@@ -49,6 +48,15 @@ impl Matrix {
         matrix
     }
 
+    pub fn to_one_hot(&self, classes: usize) -> Matrix {
+        assert!(self.columns == 1, "matrix must be Nx1 to change to one_hot");
+        let mut matrix = Matrix::new(self.elements.len(), classes);
+        for i in 0..self.elements.len() {
+            matrix.set_at(i, self.elements[i] as usize, 1.0);
+        }
+        matrix
+    }
+
     pub fn at(&self, row: usize, column: usize) -> f64 {
         assert!(row < self.rows, "row is too large");
         assert!(column < self.columns, "column is too large");
@@ -84,32 +92,16 @@ impl Matrix {
         }
     }
 
-    pub fn add(&self, other: &Matrix) -> Matrix {
-        self.make_op(other, |a, b| a + b)
-    }
-
     pub fn add_mut(&mut self, other: &Matrix) {
         self.make_mut_op(other, |a, b| a + b)
-    }
-
-    pub fn sub(&self, other: &Matrix) -> Matrix {
-        self.make_op(other, |a, b| a - b)
     }
 
     pub fn sub_mut(&mut self, other: &Matrix) {
         self.make_mut_op(other, |a, b| a - b)
     }
 
-    pub fn mul(&self, other: &Matrix) -> Matrix {
-        self.make_op(other, |a, b| a * b)
-    }
-
     pub fn mul_mut(&mut self, other: &Matrix) {
         self.make_mut_op(other, |a, b| a * b)
-    }
-
-    pub fn div(&self, other: &Matrix) -> Matrix {
-        self.make_op(other, |a, b| a / b)
     }
 
     pub fn div_mut(&mut self, other: &Matrix) {
@@ -215,8 +207,36 @@ impl Matrix {
     }
 }
 
-impl std::fmt::Display for Matrix {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<'a, 'b> ops::Add<&'b Matrix> for &'a Matrix {
+    type Output = Matrix;
+    fn add(self, other: &'b Matrix) -> Matrix {
+        self.make_op(&other, |a, b| a + b)
+    }
+}
+
+impl<'a, 'b> ops::Sub<&'b Matrix> for &'a Matrix {
+    type Output = Matrix;
+    fn sub(self, other: &'b Matrix) -> Matrix {
+        self.make_op(&other, |a, b| a - b)
+    }
+}
+
+impl<'a, 'b> ops::Mul<&'b Matrix> for &'a Matrix {
+    type Output = Matrix;
+    fn mul(self, other: &'b Matrix) -> Matrix {
+        self.make_op(&other, |a, b| a * b)
+    }
+}
+
+impl<'a, 'b> ops::Div<&'b Matrix> for &'a Matrix {
+    type Output = Matrix;
+    fn div(self, other: &'b Matrix) -> Matrix {
+        self.make_op(&other, |a, b| a / b)
+    }
+}
+
+impl fmt::Display for Matrix {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let mut elements = String::new();
         for row in 0..self.rows {
             for column in 0..self.columns {
@@ -229,5 +249,39 @@ impl std::fmt::Display for Matrix {
         let formatted = format!("Matrix {}x{}\n{}\n{}{}", self.rows, self.columns, separator, elements, separator);
 
         write!(fmt, "{}", formatted)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseMatrixError {
+    message: String
+}
+impl ParseMatrixError {
+    #[doc(hidden)]
+    pub fn __description(&self) -> &str {
+        "could not parse matrix"
+    }
+}
+
+impl fmt::Display for ParseMatrixError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "could not parse matrix: {}", self.message)
+    }
+}
+
+impl str::FromStr for Matrix {
+    type Err = ParseMatrixError;
+    fn from_str(s: &str) -> Result<Matrix, ParseMatrixError> {
+        let lines: Vec<Vec<&str>> = s.trim().split('\n').map(|line| line.split(' ').collect()).collect();
+        let mut matrix = Matrix::new(lines.len(), lines[0].len());
+        for row in 0..matrix.rows {
+            for col in 0..matrix.columns {
+                match f64::from_str(lines[row][col]) {
+                    Ok(v) => matrix.set_at(row, col, v),
+                    Err(e) => return Err(ParseMatrixError { message: e.to_string() })
+                }
+            }
+        }
+        Ok(matrix)
     }
 }
