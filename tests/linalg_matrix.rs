@@ -5,7 +5,7 @@ use simple_nn::{Matrix};
 
 #[test]
 fn matrix_creation() {
-    let matrix = Matrix::new(10, 5);
+    let matrix = Matrix::<f64>::new(10, 5);
     assert_eq!(matrix.rows, 10);
     assert_eq!(matrix.columns, 5);
 }
@@ -84,4 +84,11 @@ fn matrix_from_str() {
     let string = "1.1 2 3 4\n5 6 7.70e+01 8\n9 10 11 12";
     let expected = Matrix::new_from(3, 4, vec![1.1, 2.0, 3.0, 4.0, 5.0, 6.0, 7.70e+01, 8.0, 9.0, 10.0, 11.0, 12.0]);
     assert_eq!(Matrix::from_str(string).unwrap(), expected);
+}
+
+#[test]
+fn slice_rows() {
+    let matrix = Matrix::new_from(4, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+    let sliced = matrix.slice_rows(1..3);
+    assert_eq!(sliced, Matrix::new_from(2, 2, vec![3.0, 4.0, 5.0, 6.0]));
 }

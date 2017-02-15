@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io;
+use std::{io, str, fmt};
 use std::io::Read;
 use std::str::FromStr;
 use std::path::Path;
@@ -13,7 +13,8 @@ fn file_to_string<P: AsRef<Path>>(path: P) -> Result<String, io::Error> {
         .map(|_bytes| s)
 }
 
-pub fn matrix_from_txt<P: AsRef<Path>>(path: P) -> Result<Matrix, String> {
+pub fn matrix_from_txt<P: AsRef<Path>, T>(path: P) -> Result<Matrix<T>, String>
+        where T: str::FromStr, <T as str::FromStr>::Err: fmt::Display {
     file_to_string(path)
         .or_else(|e| Err(e.to_string()))
         .and_then(|r| Matrix::from_str(r.as_str()).or_else(|e| Err(e.to_string())) )

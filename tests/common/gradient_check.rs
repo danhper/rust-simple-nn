@@ -25,7 +25,7 @@ fn set_weight(network: &mut Network, layer_index: usize, row: usize, col: usize,
 #[allow(dead_code)]
 pub fn check_gradients(network: &mut Network) {
     let check_count = 50;
-    let x = fixtures::load_matrix("mnist_sample.txt").transform(|x| x / 255.0);
+    let x = fixtures::load_matrix("mnist_sample.txt").transform(|x: f64| x / 255.0);
     let y = fixtures::load_matrix("mnist_sample_labels.txt").to_one_hot(10);
 
     let results = network.forward(&x);
@@ -46,9 +46,9 @@ pub fn check_gradients(network: &mut Network) {
 
             let original = get_weight(network, layer_index, row, col);
             set_weight(network, layer_index, row, col, original + epsilon);
-            let plus_cost = network.score(&x, &y);
+            let plus_cost = network.loss(&x, &y);
             set_weight(network, layer_index, row, col, original - epsilon);
-            let minus_cost = network.score(&x, &y);
+            let minus_cost = network.loss(&x, &y);
             set_weight(network, layer_index, row, col, original);
 
             let grad = (plus_cost - minus_cost) / (2.0 * epsilon);

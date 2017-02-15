@@ -3,7 +3,7 @@
 extern crate rand;
 
 pub use linalg::matrix::{Matrix};
-pub use nn::{layers, objectives, Network};
+pub use nn::{layers, objectives, optimizers, Network};
 pub use nn::output_layers::OutputLayer;
 
 pub mod linalg;

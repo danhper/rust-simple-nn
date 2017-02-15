@@ -1,16 +1,51 @@
-use nn::{layers, output_layers, objectives};
+use std::cmp;
+
+use nn::{layers, output_layers, objectives, optimizers};
 use linalg::{Matrix};
+
+pub struct TrainOptions {
+    pub shuffle: bool,
+    pub epochs: usize,
+    pub batch_size: usize
+}
+
+impl TrainOptions {
+    pub fn default() -> TrainOptions {
+        TrainOptions {
+            shuffle: true,
+            epochs: 1,
+            batch_size: 64
+        }
+    }
+
+    pub fn with_epochs(mut self, epochs: usize) -> TrainOptions {
+        self.epochs = epochs;
+        self
+    }
+
+    pub fn with_shuffle(mut self, shuffle: bool) -> TrainOptions {
+        self.shuffle = shuffle;
+        self
+    }
+
+    pub fn with_batch_size(mut self, batch_size: usize) -> TrainOptions {
+        self.batch_size = batch_size;
+        self
+    }
+}
 
 pub struct Network {
     layers: Vec<Box<layers::Layer>>,
-    objective: Option<Box<objectives::Objective>>
+    objective: Option<Box<objectives::Objective>>,
+    optimizer: Option<Box<optimizers::Optimizer>>
 }
 
 impl Network {
     pub fn new() -> Network {
         Network {
             layers: vec![],
-            objective: None
+            objective: None,
+            optimizer: None
         }
     }
 
@@ -42,18 +77,73 @@ impl Network {
         self.add(final_layer.layer)
     }
 
-    pub fn predict(&self, input: &Matrix) -> Matrix {
+    pub fn optimize_with(&mut self, optimizer: Box<optimizers::Optimizer>) {
+        self.optimizer = Some(optimizer)
+    }
+
+    pub fn fit(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: TrainOptions) {
+        for _ in 0..train_options.epochs {
+            self.process_and_run_epoch(input, expected, &train_options);
+        }
+    }
+
+    fn process_and_run_epoch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: &TrainOptions) {
+        if train_options.shuffle {
+            let mut cloned_input = input.clone();
+            let mut cloned_expected = expected.clone();
+            self.shuffle(&mut cloned_input, &mut cloned_expected);
+            self.run_epoch(&cloned_input, &cloned_expected, train_options);
+        } else {
+            self.run_epoch(input, expected, train_options)
+        }
+    }
+
+    fn run_epoch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: &TrainOptions) {
+        let total_batches = (input.rows / train_options.batch_size) + ((input.rows % train_options.batch_size != 0) as usize);
+        for n in 0..total_batches {
+            let start = n * train_options.batch_size;
+            let end = cmp::max(n * (train_options.batch_size + 1), input.rows);
+            let x = input.slice_rows(start..end);
+            let y = expected.slice_rows(start..end);
+            let loss = self.train_on_batch(&x, &y);
+            println!("current loss: {}", loss);
+        }
+    }
+
+    pub fn shuffle<T: Clone>(&self, input: &mut Matrix<T>, expected: &mut Matrix<T>) {
+        let swaps = input.shuffle_rows();
+        for (row, other) in swaps {
+            expected.swap_rows(row, other);
+        }
+    }
+
+    pub fn train_on_batch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
+        let results = self.forward(input);
+        let gradients = self.backward(&results, expected);
+        let optimizer = self.optimizer.as_ref().unwrap().boxed();
+        for (index, gradient) in gradients {
+            let mut weights = self.get_mut_layer(index).get_mut_weights();
+            optimizer.apply_gradients(weights, &gradient);
+        }
+        self.loss_from_probs(&results.last().unwrap(), expected)
+    }
+
+    pub fn predict_probs(&self, input: &Matrix<f64>) -> Matrix<f64> {
         let results = self.forward(input);
         let output = results.last().unwrap();
         output.clone()
     }
 
-    pub fn score(&self, input: &Matrix, expected: &Matrix) -> f64 {
-        let predictions = self.predict(input);
+    pub fn loss(&self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
+        let predictions = self.predict_probs(input);
+        self.loss_from_probs(&predictions, expected)
+    }
+
+    pub fn loss_from_probs(&self, predictions: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
         self.objective.as_ref().unwrap().loss(&predictions, expected).reduce(0.0, |acc, v| acc + v)
     }
 
-    pub fn forward(&self, input: &Matrix) -> Vec<Matrix> {
+    pub fn forward(&self, input: &Matrix<f64>) -> Vec<Matrix<f64>> {
         let mut results = vec![input.clone()];
         for layer in self.layers.iter() {
             let next = layer.compute(&results.last().unwrap());
@@ -62,9 +152,9 @@ impl Network {
         results
     }
 
-    pub fn backward(&self, results: &Vec<Matrix>, expected: &Matrix) -> Vec<(usize, Matrix)> {
+    pub fn backward(&self, results: &Vec<Matrix<f64>>, expected: &Matrix<f64>) -> Vec<(usize, Matrix<f64>)> {
         let objective = self.objective.as_ref().unwrap();
-        let mut gradients: Vec<(usize, Matrix)> = vec![];
+        let mut gradients: Vec<(usize, Matrix<f64>)> = vec![];
         let mut back_results = vec![objective.delta(&results[results.len() - 1], expected)];
         let last_layer_index = self.layers_count() - 1;
         for i in (0..last_layer_index).rev() {
