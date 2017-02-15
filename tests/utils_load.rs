@@ -1,3 +1,4 @@
+extern crate rand;
 extern crate simple_nn;
 
 mod common;

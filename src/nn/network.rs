@@ -29,6 +29,14 @@ impl Network {
         }
     }
 
+    pub fn get_layer(&self, index: usize) -> &Box<layers::Layer> {
+        &self.layers[index]
+    }
+
+    pub fn get_mut_layer(&mut self, index: usize) -> &mut Box<layers::Layer> {
+        &mut self.layers[index]
+    }
+
     pub fn add_final(&mut self, final_layer: output_layers::FinalLayer) {
         self.objective = Some(final_layer.objective);
         self.add(final_layer.layer)
@@ -36,7 +44,8 @@ impl Network {
 
     pub fn predict(&self, input: &Matrix) -> Matrix {
         let results = self.forward(input);
-        results.last().unwrap().clone()
+        let output = results.last().unwrap();
+        output.clone()
     }
 
     pub fn score(&self, input: &Matrix, expected: &Matrix) -> f64 {
@@ -53,13 +62,18 @@ impl Network {
         results
     }
 
-    pub fn backward(&self, results: &Vec<Matrix>, expected: &Matrix) -> Vec<Matrix> {
+    pub fn backward(&self, results: &Vec<Matrix>, expected: &Matrix) -> Vec<(usize, Matrix)> {
         let objective = self.objective.as_ref().unwrap();
-        let mut gradients = vec![objective.delta(&results[results.len() - 1], expected)];
-        let last_layer_index = self.layers.len() - 2;
-        for i in (1..last_layer_index).rev() {
-            let gradient = self.layers[i].delta(&results[i], &results[i + 1], &gradients[gradients.len() - 1]);
-            gradients.push(gradient);
+        let mut gradients: Vec<(usize, Matrix)> = vec![];
+        let mut back_results = vec![objective.delta(&results[results.len() - 1], expected)];
+        let last_layer_index = self.layers_count() - 1;
+        for i in (0..last_layer_index).rev() {
+            let gradient = self.layers[i].delta(&results[i], &results[i + 1], &back_results[back_results.len() - 1]);
+            if self.layers[i].has_trainable_weights() {
+                let gradient = results[i].t().matmul(&back_results[back_results.len() - 1]);
+                gradients.push((i, gradient));
+            }
+            back_results.push(gradient);
         }
         gradients.reverse();
         gradients

@@ -1,7 +1,7 @@
+extern crate rand;
 extern crate simple_nn;
 
 mod common;
-use common::fixtures;
 
 use simple_nn::{layers, objectives, Network, Matrix, OutputLayer};
 
@@ -39,11 +39,12 @@ fn network_forward() {
 }
 
 #[test]
+#[ignore]
 fn network_backward() {
     let mut network = Network::new();
     network.add(layers::Dense::new(784, 100));
     network.add(layers::Relu::new());
     network.add(layers::Dense::new(100, 10));
     network.add_final(layers::Softmax::new().minimizing(objectives::CrossEntropy::new()));
-    common::check_gradients(&network)
+    common::check_gradients(&mut network)
 }

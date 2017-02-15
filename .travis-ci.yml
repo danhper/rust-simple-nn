@@ -1,5 +1,7 @@
 language: rust
 
+script: make test
+
 rust:
   - stable
   - beta

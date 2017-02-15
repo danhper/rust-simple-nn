@@ -7,6 +7,12 @@ pub trait Layer {
     fn has_trainable_weights(&self) -> bool {
         false
     }
+    fn get_mut_weights(&mut self) -> &mut Matrix {
+        panic!("this layer is not trainable")
+    }
+    fn get_weights(&self) -> &Matrix {
+        panic!("this layer is not trainable")
+    }
 }
 
 #[derive(Debug)]
@@ -31,6 +37,7 @@ impl Layer for Relu {
     }
 
     fn delta(&self, incoming: &Matrix, _outgoing: &Matrix, above: &Matrix) -> Matrix {
+        incoming.assert_same_size(above);
         self.compute_in_out(incoming, above)
     }
 }
@@ -64,6 +71,14 @@ impl Dense {
 impl Layer for Dense {
     fn has_trainable_weights(&self) -> bool {
         true
+    }
+
+    fn get_weights(&self) -> &Matrix {
+        &self.weights
+    }
+
+    fn get_mut_weights(&mut self) -> &mut Matrix {
+        &mut self.weights
     }
 
     fn compute(&self, incoming: &Matrix) -> Matrix {

@@ -73,8 +73,10 @@ impl Matrix {
         self.rows * self.columns
     }
 
-    fn assert_same_size(&self, other: &Matrix) {
-        assert!(self.rows == other.rows && self.columns == other.columns, "matrix should have same size")
+    pub fn assert_same_size(&self, other: &Matrix) {
+        assert!(self.rows == other.rows && self.columns == other.columns,
+                "matrix should have same size, given {}x{} and {}x{}",
+                self.rows, self.columns, other.rows, other.columns)
     }
 
     fn make_op<F>(&self, other: &Matrix, op: F) -> Matrix
