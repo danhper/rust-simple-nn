@@ -1,6 +1,6 @@
 use std::cmp;
 
-use nn::{layers, output_layers, objectives, optimizers};
+use nn::{layers, objectives, optimizers};
 use linalg::{Matrix};
 
 pub struct TrainOptions {
@@ -34,34 +34,25 @@ impl TrainOptions {
     }
 }
 
-pub struct Network {
+pub struct Network<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone> {
     layers: Vec<Box<layers::Layer>>,
-    objective: Option<Box<objectives::Objective>>,
-    optimizer: Option<Box<optimizers::Optimizer>>
+    objective: Obj,
+    optimizer: Opt,
+    output: Box<Out>
 }
 
-impl Network {
-    pub fn new() -> Network {
+impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone> Network<Out, Obj, Opt> {
+    pub fn new(layers: Vec<Box<layers::Layer>>, objective: Obj, optimizer: Opt, output: Box<Out>) -> Network<Out, Obj, Opt> {
         Network {
-            layers: vec![],
-            objective: None,
-            optimizer: None
+            layers: layers,
+            objective: objective,
+            optimizer: optimizer,
+            output: output
         }
     }
 
     pub fn layers_count(&self) -> usize {
         self.layers.len()
-    }
-
-    pub fn add(&mut self, layer: Box<layers::Layer>) {
-        self.layers.push(layer)
-    }
-
-    pub fn iterate_layers<F>(&self, mut f: F)
-            where F: FnMut(&layers::Layer, usize) {
-        for i in 0..self.layers.len() {
-            f(self.layers[i].as_ref(), i)
-        }
     }
 
     pub fn get_layer(&self, index: usize) -> &Box<layers::Layer> {
@@ -70,15 +61,6 @@ impl Network {
 
     pub fn get_mut_layer(&mut self, index: usize) -> &mut Box<layers::Layer> {
         &mut self.layers[index]
-    }
-
-    pub fn add_final(&mut self, final_layer: output_layers::FinalLayer) {
-        self.objective = Some(final_layer.objective);
-        self.add(final_layer.layer)
-    }
-
-    pub fn optimize_with(&mut self, optimizer: Box<optimizers::Optimizer>) {
-        self.optimizer = Some(optimizer)
     }
 
     pub fn fit(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: TrainOptions) {
@@ -120,7 +102,7 @@ impl Network {
     pub fn train_on_batch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
         let results = self.forward(input);
         let gradients = self.backward(&results, expected);
-        let optimizer = self.optimizer.as_ref().unwrap().boxed();
+        let ref optimizer = self.optimizer.clone();
         for (index, gradient) in gradients {
             let mut weights = self.get_mut_layer(index).get_mut_weights();
             optimizer.apply_gradients(weights, &gradient);
@@ -140,7 +122,7 @@ impl Network {
     }
 
     pub fn loss_from_probs(&self, predictions: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
-        self.objective.as_ref().unwrap().loss(&predictions, expected).reduce(0.0, |acc, v| acc + v)
+        self.objective.loss(&predictions, expected).reduce(0.0, |acc, v| acc + v)
     }
 
     pub fn forward(&self, input: &Matrix<f64>) -> Vec<Matrix<f64>> {
@@ -149,14 +131,15 @@ impl Network {
             let next = layer.compute(&results.last().unwrap());
             results.push(next);
         }
+        let next = self.output.compute(&results.last().unwrap());
+        results.push(next);
         results
     }
 
     pub fn backward(&self, results: &Vec<Matrix<f64>>, expected: &Matrix<f64>) -> Vec<(usize, Matrix<f64>)> {
-        let objective = self.objective.as_ref().unwrap();
         let mut gradients: Vec<(usize, Matrix<f64>)> = vec![];
-        let mut back_results = vec![objective.delta(&results[results.len() - 1], expected)];
-        let last_layer_index = self.layers_count() - 1;
+        let mut back_results = vec![self.objective.delta(&results[results.len() - 1], expected)];
+        let last_layer_index = self.layers_count();
         for i in (0..last_layer_index).rev() {
             let gradient = self.layers[i].delta(&results[i], &results[i + 1], &back_results[back_results.len() - 1]);
             if self.layers[i].has_trainable_weights() {

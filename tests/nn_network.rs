@@ -3,23 +3,17 @@ extern crate simple_nn;
 
 mod common;
 
-use simple_nn::{layers, objectives, Network, Matrix, OutputLayer};
+use simple_nn::{layers, objectives, optimizers, NetworkBuilder, Matrix};
 
 #[test]
-fn network_add() {
-    let mut network = Network::new();
-    assert_eq!(network.layers_count(), 0);
-    network.add(layers::Dense::new(10, 10));
+fn network_builder_add() {
+    let network = NetworkBuilder::new()
+        .add(layers::Dense::new(10, 10))
+        .add_output(layers::Softmax::new())
+        .minimize(objectives::CrossEntropy::new())
+        .with(optimizers::SGD::new(0.5))
+        .build();
     assert_eq!(network.layers_count(), 1);
-}
-
-#[test]
-fn network_add_final() {
-    let mut network = Network::new();
-    network.add(layers::Dense::new(10, 10));
-    network.add(layers::Relu::new());
-    network.add_final(layers::Softmax::new().minimizing(objectives::CrossEntropy::new()));
-    assert_eq!(network.layers_count(), 3);
 }
 
 #[test]
@@ -27,10 +21,13 @@ fn network_forward() {
     let input = Matrix::new_from(2, 3, vec![1.0, -2.0, 3.0, 4.0, 5.0, -6.0]);
     let weights = Matrix::new_from(3, 3, vec![2.0, 4.0, 5.0, -8.0, 3.0, -1.0, 7.0, -2.0, 6.0]);
 
-    let mut network = Network::new();
-    network.add(layers::Dense::new_with_weights(&weights));
-    network.add(layers::Relu::new());
-    // network.add_final(layers::Softmax::new()::minimizing(objectives::CrossEntropy));
+    let network = NetworkBuilder::new()
+        .add(layers::Dense::new_with_weights(&weights))
+        .add(layers::Relu::new())
+        .add_output(layers::Softmax::new())
+        .minimize(objectives::CrossEntropy::new())
+        .with(optimizers::SGD::new(0.5))
+        .build();
 
     let results = network.forward(&input);
     assert_eq!(results[0], input);
@@ -41,10 +38,13 @@ fn network_forward() {
 #[test]
 #[ignore]
 fn network_backward() {
-    let mut network = Network::new();
-    network.add(layers::Dense::new(784, 100));
-    network.add(layers::Relu::new());
-    network.add(layers::Dense::new(100, 10));
-    network.add_final(layers::Softmax::new().minimizing(objectives::CrossEntropy::new()));
+    let mut network = NetworkBuilder::new()
+        .add(layers::Dense::new(784, 100))
+        .add(layers::Relu::new())
+        .add(layers::Dense::new(100, 10))
+        .add_output(layers::Softmax::new())
+        .minimize(objectives::CrossEntropy::new())
+        .with(optimizers::SGD::new(0.5))
+        .build();
     common::check_gradients(&mut network)
 }

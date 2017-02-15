@@ -1,6 +1,8 @@
 use linalg::Matrix;
 use nn::functions;
 
+pub trait OutputLayer: Layer {}
+
 pub trait Layer {
     fn compute(&self, incoming: &Matrix<f64>) -> Matrix<f64>;
     fn delta(&self, incoming: &Matrix<f64>, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64>;
@@ -94,14 +96,14 @@ impl Layer for Dense {
 pub struct Softmax;
 
 impl Softmax {
-    pub fn new() -> Softmax {
-        Softmax {}
+    pub fn new() -> Box<Softmax> {
+        Box::new(Softmax {})
     }
 }
 
 impl Layer for Softmax {
     fn compute(&self, incoming: &Matrix<f64>) -> Matrix<f64> {
-        return functions::softmax(incoming);
+        functions::softmax(incoming)
     }
 
     fn delta(&self, _incoming: &Matrix<f64>, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
@@ -110,3 +112,5 @@ impl Layer for Softmax {
         delta.transform_with_index(|v, row, col| v - outgoing.at(row, col) * sums.at(row, 0))
     }
 }
+
+impl OutputLayer for Softmax {}

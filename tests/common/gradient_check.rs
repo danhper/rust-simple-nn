@@ -1,10 +1,10 @@
 use rand;
 use rand::distributions::{IndependentSample, Range};
 
-use simple_nn::Network;
+use simple_nn::{Network, objectives, optimizers, layers};
 use common::fixtures;
 
-fn get_layer_dim(network: &Network, layer_index: usize) -> (usize, usize) {
+fn get_layer_dim<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &Network<Out, Obj, Opt>, layer_index: usize) -> (usize, usize) {
     let layer = network.get_layer(layer_index);
     if layer.has_trainable_weights() {
         let weights = layer.get_weights();
@@ -14,16 +14,16 @@ fn get_layer_dim(network: &Network, layer_index: usize) -> (usize, usize) {
     }
 }
 
-fn get_weight(network: &Network, layer_index: usize, row: usize, col: usize) -> f64 {
+fn get_weight<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &Network<Out, Obj, Opt>, layer_index: usize, row: usize, col: usize) -> f64 {
     network.get_layer(layer_index).get_weights().at(row, col)
 }
 
-fn set_weight(network: &mut Network, layer_index: usize, row: usize, col: usize, val: f64) {
+fn set_weight<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &mut Network<Out, Obj, Opt>, layer_index: usize, row: usize, col: usize, val: f64) {
     network.get_mut_layer(layer_index).get_mut_weights().set_at(row, col, val);
 }
 
 #[allow(dead_code)]
-pub fn check_gradients(network: &mut Network) {
+pub fn check_gradients<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &mut Network<Out, Obj, Opt>) {
     let check_count = 50;
     let x = fixtures::load_matrix("mnist_sample.txt").transform(|x: f64| x / 255.0);
     let y = fixtures::load_matrix("mnist_sample_labels.txt").to_one_hot(10);
