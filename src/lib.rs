@@ -1,5 +1,3 @@
-#![feature(box_syntax, box_patterns)]
-
 extern crate rand;
 
 pub use linalg::matrix::{Matrix};
