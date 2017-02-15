@@ -84,7 +84,7 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         let total_batches = (input.rows / train_options.batch_size) + ((input.rows % train_options.batch_size != 0) as usize);
         for n in 0..total_batches {
             let start = n * train_options.batch_size;
-            let end = cmp::max(n * (train_options.batch_size + 1), input.rows);
+            let end = cmp::min(train_options.batch_size * (n + 1), input.rows);
             let x = input.slice_rows(start..end);
             let y = expected.slice_rows(start..end);
 
@@ -107,7 +107,7 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         let ref optimizer = self.optimizer.clone();
         for (index, gradient) in gradients {
             let mut weights = self.get_mut_layer(index).get_mut_weights();
-            optimizer.apply_gradients(weights, &gradient);
+            optimizer.apply_gradients(weights, &gradient, input.rows);
         }
         let last = results.last().unwrap();
         let loss = self.loss_from_probs(&last, expected);

@@ -41,6 +41,8 @@ fn network_backward() {
     let mut network = NetworkBuilder::new()
         .add(layers::Dense::new(784, 100))
         .add(layers::Relu::new())
+        .add(layers::Dense::new(100, 100))
+        .add(layers::Relu::new())
         .add(layers::Dense::new(100, 10))
         .add_output(layers::Softmax::new())
         .minimize(objectives::CrossEntropy::new())
