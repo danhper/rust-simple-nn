@@ -31,14 +31,6 @@ impl<T> Matrix<T> {
         }
     }
 
-    pub fn one_hot(classes: usize, elements: Vec<usize>) -> Matrix<f64> {
-        let mut matrix = Matrix::new(elements.len(), classes);
-        for i in 0..elements.len() {
-            matrix.set_at(i, elements[i], 1.0);
-        }
-        matrix
-    }
-
     pub fn random<B>(rows: usize, columns: usize, min: B, max: B) -> Matrix<B>
             where B: PartialOrd + rand::distributions::range::SampleRange {
         let between = Range::new(min, max);
@@ -72,7 +64,7 @@ impl<T> Matrix<T> {
 }
 
 impl Matrix<usize> {
-    pub fn to_one_hot<T: From<i8> + Clone + Default>(&self, classes: usize) -> Matrix<T> {
+    pub fn to_one_hot<T: From<u8> + Clone + Default>(&self, classes: usize) -> Matrix<T> {
         assert!(self.columns == 1, "matrix must be Nx1 to change to one_hot");
         let mut matrix = Matrix::new(self.elements.len(), classes);
         for i in 0..self.elements.len() {

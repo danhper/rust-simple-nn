@@ -1,6 +1,6 @@
 use std::cmp;
 
-use nn::{layers, objectives, optimizers};
+use nn::{layers, objectives, optimizers, functions};
 use linalg::{Matrix};
 
 pub struct TrainOptions {
@@ -87,8 +87,10 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
             let end = cmp::max(n * (train_options.batch_size + 1), input.rows);
             let x = input.slice_rows(start..end);
             let y = expected.slice_rows(start..end);
-            let loss = self.train_on_batch(&x, &y);
-            println!("current loss: {}", loss);
+
+            let (accuracy, loss) = self.train_on_batch(&x, &y);
+            // TODO: use callbacks or something to handle this
+            println!("accuracy: {:.5}, loss: {:.5}", accuracy, loss);
         }
     }
 
@@ -99,7 +101,7 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         }
     }
 
-    pub fn train_on_batch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
+    pub fn train_on_batch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>) -> (f64, f64) {
         let results = self.forward(input);
         let gradients = self.backward(&results, expected);
         let ref optimizer = self.optimizer.clone();
@@ -107,7 +109,10 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
             let mut weights = self.get_mut_layer(index).get_mut_weights();
             optimizer.apply_gradients(weights, &gradient);
         }
-        self.loss_from_probs(&results.last().unwrap(), expected)
+        let last = results.last().unwrap();
+        let loss = self.loss_from_probs(&last, expected);
+        let accuracy = functions::accuracy_from_probs(&last, expected);
+        (accuracy, loss)
     }
 
     pub fn predict_probs(&self, input: &Matrix<f64>) -> Matrix<f64> {
@@ -116,9 +121,19 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         output.clone()
     }
 
+    pub fn predict(&self, input: &Matrix<f64>) -> Matrix<usize> {
+        let probs = self.predict_probs(input);
+        functions::argmax(&probs)
+    }
+
+    pub fn accuracy<T: From<u8> + Clone + PartialEq>(&self, input: &Matrix<f64>, expected: &Matrix<T>) -> f64 {
+        let probs = self.predict_probs(input);
+        functions::accuracy_from_probs(&probs, expected)
+    }
+
     pub fn loss(&self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
-        let predictions = self.predict_probs(input);
-        self.loss_from_probs(&predictions, expected)
+        let probs = self.predict_probs(input);
+        self.loss_from_probs(&probs, expected)
     }
 
     pub fn loss_from_probs(&self, predictions: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
