@@ -1,5 +1,6 @@
-use nn::{layers, objectives, optimizers};
+use nn::{layers, objectives, optimizers, measures};
 use nn::network::Network;
+use nn::formatter::Formatter;
 
 pub struct NetworkBuilder {
     layers: Vec<Box<layers::Layer>>
@@ -41,7 +42,10 @@ pub struct NetworkBuilderWithObjective<Out: layers::OutputLayer, Obj: objectives
 
 impl <Out: layers::OutputLayer, Obj: objectives::Objective<Out>> NetworkBuilderWithObjective<Out, Obj> {
     pub fn with<Opt: optimizers::Optimizer + Clone>(self, optimizer: Opt) -> NetworkBuilderWithOptimizer<Out, Obj, Opt> {
-        NetworkBuilderWithOptimizer { layers: self.layers, objective: self.objective, optimizer: optimizer, output: self.output }
+        NetworkBuilderWithOptimizer {
+            layers: self.layers, objective: self.objective,
+            optimizer: optimizer, output: self.output, formatter: None
+        }
     }
 }
 
@@ -49,12 +53,21 @@ pub struct NetworkBuilderWithOptimizer<Out: layers::OutputLayer, Obj: objectives
     layers: Vec<Box<layers::Layer>>,
     objective: Obj,
     optimizer: Opt,
-    output: Box<Out>
+    output: Box<Out>,
+    formatter: Option<Formatter>
 }
 
 
 impl <Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone> NetworkBuilderWithOptimizer<Out, Obj, Opt> {
     pub fn build(self) -> Network<Out, Obj, Opt> {
-        Network::new(self.layers, self.objective, self.optimizer, self.output)
+        let default_formatter = self.default_formatter();
+        Network::new(self.layers, self.objective, self.optimizer, self.output, self.formatter.unwrap_or(default_formatter))
+    }
+
+    pub fn default_formatter(&self) -> Formatter {
+        let mut formatter = Formatter::new();
+        formatter.add_measure(measures::Accuracy::new());
+        formatter.add_measure(measures::MeanLoss::new());
+        formatter
     }
 }

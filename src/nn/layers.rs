@@ -53,7 +53,8 @@ pub struct Dense {
 
 impl Dense {
     pub fn new(input_dim: usize, output_dim: usize) -> Box<Dense> {
-        let matrix = Matrix::<f64>::random(input_dim, output_dim, -1.0, 1.0);
+        let d = 1.0 / (input_dim as f64).sqrt();
+        let matrix = Matrix::<f64>::random(input_dim, output_dim, -d, d);
         Box::new(Dense {
             weights: matrix,
             input_dim: input_dim,

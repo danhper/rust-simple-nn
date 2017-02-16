@@ -1,6 +1,8 @@
 use std::cmp;
 
 use nn::{layers, objectives, optimizers, functions};
+use nn::formatter::Formatter;
+use nn::training_results::TrainingResults;
 use linalg::{Matrix};
 
 pub struct TrainOptions {
@@ -38,16 +40,19 @@ pub struct Network<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Op
     layers: Vec<Box<layers::Layer>>,
     objective: Obj,
     optimizer: Opt,
-    output: Box<Out>
+    output: Box<Out>,
+    formatter: Formatter
 }
 
 impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone> Network<Out, Obj, Opt> {
-    pub fn new(layers: Vec<Box<layers::Layer>>, objective: Obj, optimizer: Opt, output: Box<Out>) -> Network<Out, Obj, Opt> {
+    pub fn new(layers: Vec<Box<layers::Layer>>, objective: Obj,
+               optimizer: Opt, output: Box<Out>, formatter: Formatter) -> Network<Out, Obj, Opt> {
         Network {
             layers: layers,
             objective: objective,
             optimizer: optimizer,
-            output: output
+            output: output,
+            formatter: formatter
         }
     }
 
@@ -64,7 +69,8 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
     }
 
     pub fn fit(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: TrainOptions) {
-        for _ in 0..train_options.epochs {
+        for i in 0..train_options.epochs {
+            println!("\nTraining epoch {} / {}", i + 1, train_options.epochs);
             self.process_and_run_epoch(input, expected, &train_options);
         }
     }
@@ -82,16 +88,26 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
 
     fn run_epoch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: &TrainOptions) {
         let total_batches = (input.rows / train_options.batch_size) + ((input.rows % train_options.batch_size != 0) as usize);
+        let mut results = TrainingResults::default();
+        results.total_count = input.rows as u64;
         for n in 0..total_batches {
             let start = n * train_options.batch_size;
             let end = cmp::min(train_options.batch_size * (n + 1), input.rows);
             let x = input.slice_rows(start..end);
             let y = expected.slice_rows(start..end);
 
-            let (accuracy, loss) = self.train_on_batch(&x, &y);
+            let (hit_count, miss_count, loss) = self.train_on_batch(&x, &y);
             // TODO: use callbacks or something to handle this
-            println!("accuracy: {:.5}, loss: {:.5}", accuracy, loss);
+            self.update_result(&mut results, (end - start) as u64, hit_count, miss_count, loss);
+            print!("{}\r", self.formatter.progress(&results))
         }
+    }
+
+    fn update_result(&self, results: &mut TrainingResults, count: u64, hit_count: u64, miss_count: u64, loss: f64) {
+        results.current_count += count;
+        results.hit_count += hit_count;
+        results.miss_count += miss_count;
+        results.total_loss += loss;
     }
 
     pub fn shuffle<T: Clone>(&self, input: &mut Matrix<T>, expected: &mut Matrix<T>) {
@@ -101,7 +117,7 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         }
     }
 
-    pub fn train_on_batch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>) -> (f64, f64) {
+    pub fn train_on_batch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>) -> (u64, u64, f64) {
         let results = self.forward(input);
         let gradients = self.backward(&results, expected);
         let ref optimizer = self.optimizer.clone();
@@ -111,8 +127,8 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         }
         let last = results.last().unwrap();
         let loss = self.loss_from_probs(&last, expected);
-        let accuracy = functions::accuracy_from_probs(&last, expected);
-        (accuracy, loss)
+        let (hit_count, miss_count) = functions::hit_miss_from_probs(&last, expected);
+        (hit_count, miss_count, loss)
     }
 
     pub fn predict_probs(&self, input: &Matrix<f64>) -> Matrix<f64> {
@@ -131,9 +147,21 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         functions::accuracy_from_probs(&probs, expected)
     }
 
+    pub fn accuracy_from_probs<T: From<u8> + Clone + PartialEq>(&self, probs: &Matrix<f64>, expected: &Matrix<T>) -> f64 {
+        functions::accuracy_from_probs(&probs, expected)
+    }
+
+    pub fn mean_loss(&self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
+        self.loss(input, expected) / (input.rows as f64)
+    }
+
     pub fn loss(&self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
         let probs = self.predict_probs(input);
         self.loss_from_probs(&probs, expected)
+    }
+
+    pub fn mean_loss_from_probs(&self, predictions: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
+        self.loss_from_probs(predictions, expected) / (predictions.rows as f64)
     }
 
     pub fn loss_from_probs(&self, predictions: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
