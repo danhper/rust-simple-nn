@@ -4,11 +4,11 @@ use simple_nn::{nn, utils};
 
 fn main() {
     let mut network = nn::NetworkBuilder::new()
-        .add(nn::layers::Dense::new(784, 100))
+        .add(nn::layers::Dense::new(784, 128))
         .add(nn::layers::Relu::new())
-        .add(nn::layers::Dense::new(100, 100))
+        .add(nn::layers::Dense::new(128, 128))
         .add(nn::layers::Relu::new())
-        .add(nn::layers::Dense::new(100, 10))
+        .add(nn::layers::Dense::new(128, 10))
         .add_output(nn::layers::Softmax::new())
         .minimize(nn::objectives::CrossEntropy::new())
         .with(nn::optimizers::SGD::new(0.5))

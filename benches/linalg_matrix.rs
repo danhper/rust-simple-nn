@@ -23,9 +23,16 @@ fn bench_matrix_sub(b: &mut Bencher) {
 }
 
 #[bench]
+fn bench_matrix_serial_matmul(b: &mut Bencher) {
+    let matrix = Matrix::<f64>::random(300, 300, -10.0, 10.0);
+    let other = Matrix::<f64>::random(300, 300, -20.0, 20.0);
+    b.iter(|| matrix.serial_matmul(&other));
+}
+
+#[bench]
 fn bench_matrix_matmul(b: &mut Bencher) {
-    let matrix = Matrix::<f64>::random(200, 120, -10.0, 10.0);
-    let other = Matrix::<f64>::random(120, 80, -20.0, 20.0);
+    let matrix = Matrix::<f64>::random(300, 300, -10.0, 10.0);
+    let other = Matrix::<f64>::random(300, 300, -20.0, 20.0);
     b.iter(|| matrix.matmul(&other));
 }
 

@@ -1,12 +1,15 @@
-use std::{str, fmt, ops};
+use std::{str, fmt, ops, marker};
 use rand;
 use rand::distributions::{IndependentSample, Range};
+
+use linalg::strassen;
 
 #[derive(Debug, PartialEq)]
 pub struct Matrix<T> {
     pub rows: usize,
     pub columns: usize,
-    elements: Vec<T>
+    elements: Vec<T>,
+    row_major: bool
 }
 
 impl <T: Clone + Default> Matrix<T> {
@@ -17,28 +20,37 @@ impl <T: Clone + Default> Matrix<T> {
             rows: rows,
             columns: columns,
             elements: elems,
+            row_major: true
         }
     }
 
     pub fn t(&self) -> Matrix<T> {
-        let mut elems: Vec<T> = Vec::with_capacity(self.rows * self.columns);
-        elems.resize(self.rows * self.columns, T::default());
-        for row in 0..self.rows {
+        Matrix::new_from(self.columns, self.rows, self.elements.to_owned(), !self.row_major)
+    }
+
+    pub fn slice_rows(&self, range: ops::Range<usize>) -> Matrix<T> {
+        let rows = range.end - range.start;
+        let mut mat = Matrix::new(rows, self.columns);
+
+        let mut new_row = 0;
+        for row in range {
             for col in 0..self.columns {
-                elems[col * self.rows + row] = self.at(row, col);
+                mat.set_at(new_row, col, self.at(row, col));
             }
+            new_row += 1;
         }
-        Matrix::new_from(self.columns, self.rows, elems)
+        mat
     }
 }
 
 impl<T> Matrix<T> {
-    pub fn new_from(rows: usize, columns: usize, elements: Vec<T>) -> Matrix<T> {
+    pub fn new_from(rows: usize, columns: usize, elements: Vec<T>, row_major: bool) -> Matrix<T> {
         debug_assert!(rows * columns == elements.len());
         Matrix {
             rows: rows,
             columns: columns,
             elements: elements,
+            row_major: row_major
         }
     }
 
@@ -54,17 +66,18 @@ impl<T> Matrix<T> {
             rows: rows,
             columns: columns,
             elements: elems,
+            row_major: true
         }
     }
 
     pub fn set_at(&mut self, row: usize, column: usize, value: T) {
         debug_assert!(row < self.rows, "row is too large");
         debug_assert!(column < self.columns, "column is too large");
-        self.elements[row * self.columns + column] = value
-    }
-
-    fn size(&self) -> usize {
-        self.rows * self.columns
+        if self.row_major {
+            self.elements[row * self.columns + column] = value
+        } else {
+            self.elements[column * self.rows + row] = value
+        }
     }
 
     pub fn assert_same_size(&self, other: &Matrix<T>) {
@@ -85,10 +98,9 @@ impl Matrix<usize> {
     }
 }
 
-impl<T: Default + Clone + ops::Add<Output = T> + ops::Mul<Output = T>> Matrix<T> {
-    pub fn matmul(&self, other: &Matrix<T>) -> Matrix<T> {
-        debug_assert!(self.columns == other.rows, "trying to multiply {}x{} with {}x{}",
-            self.rows, self.columns, other.rows, other.columns);
+impl<T> Matrix<T>
+        where T: Default + Clone + ops::Add<Output = T> + ops::Sub<Output = T> + ops::Mul<Output = T> + marker::Send + 'static {
+    pub fn serial_matmul(&self, other: &Matrix<T>) -> Matrix<T> {
         let mut output = Matrix::new(self.rows, other.columns);
         for row in 0..self.rows {
             for col in 0..other.columns {
@@ -101,14 +113,27 @@ impl<T: Default + Clone + ops::Add<Output = T> + ops::Mul<Output = T>> Matrix<T>
         }
         output
     }
+
+    pub fn matmul(&self, other: &Matrix<T>) -> Matrix<T> {
+        debug_assert!(self.columns == other.rows, "trying to multiply {}x{} with {}x{}",
+            self.rows, self.columns, other.rows, other.columns);
+        if self.rows >= 64 && self.rows == self.columns {
+            strassen::mul(self, other)
+        } else {
+            self.serial_matmul(other)
+        }
+    }
 }
 
 impl<T: Clone> Matrix<T> {
     fn make_mut_op<F>(&mut self, other: &Matrix<T>, mut op: F)
             where F: FnMut(T, T) -> T {
         self.assert_same_size(other);
-        for i in 0..self.size() {
-            self.elements[i] = op(self.elements[i].clone(), other.elements[i].clone());
+        for row in 0..self.rows {
+            for col in 0..self.columns {
+                let result = op(self.at(row, col), other.at(row, col));
+                self.set_at(row, col, result);
+            }
         }
     }
 
@@ -122,7 +147,11 @@ impl<T: Clone> Matrix<T> {
     pub fn at(&self, row: usize, column: usize) -> T {
         debug_assert!(row < self.rows, "row is too large");
         debug_assert!(column < self.columns, "column is too large");
-        self.elements[row * self.columns + column].clone()
+        if self.row_major {
+            self.elements[row * self.columns + column].clone()
+        } else {
+            self.elements[column * self.rows + row].clone()
+        }
     }
 
     pub fn reduce<F, B>(&self, init: B, mut f: F) -> B
@@ -151,7 +180,7 @@ impl<T: Clone> Matrix<T> {
             }
             elems.push(result);
         }
-        Matrix::new_from(self.rows, 1, elems)
+        Matrix::new_from(self.rows, 1, elems, self.row_major)
     }
 
     pub fn reduce_rows<F, B: Copy>(&self, init: B, mut f: F) -> Matrix<B>
@@ -174,7 +203,7 @@ impl<T: Clone> Matrix<T> {
             }
             elems.push(result);
         }
-        Matrix::new_from(1, self.columns, elems)
+        Matrix::new_from(1, self.columns, elems, self.row_major)
     }
 
     pub fn transform<F, B: Default + Clone>(&self, mut f: F) -> Matrix<B>
@@ -191,16 +220,6 @@ impl<T: Clone> Matrix<T> {
             }
         }
         output
-    }
-
-    pub fn slice_rows(&self, range: ops::Range<usize>) -> Matrix<T> {
-        let rows = range.end - range.start;
-        let vec_start = range.start * self.columns;
-        let mut elements = Vec::with_capacity(rows * self.columns);
-        for i in 0..(rows * self.columns) {
-            elements.push(self.elements[i + vec_start].clone());
-        }
-        Matrix::new_from(rows, self.columns, elements)
     }
 
     pub fn shuffle_rows(&mut self) -> Vec<(usize, usize)> {
@@ -298,7 +317,7 @@ impl<T: fmt::Display + Clone> fmt::Display for Matrix<T> {
 
 impl<T: Clone> Clone for Matrix<T> {
     fn clone(&self) -> Matrix<T> {
-        Matrix::new_from(self.rows, self.columns, self.elements.to_owned())
+        Matrix::new_from(self.rows, self.columns, self.elements.to_owned(), self.row_major)
     }
 }
 
@@ -335,6 +354,6 @@ impl<T> str::FromStr for Matrix<T>
                 }
             }
         }
-        Ok(Matrix::new_from(rows, columns, elems))
+        Ok(Matrix::new_from(rows, columns, elems, true))
     }
 }
