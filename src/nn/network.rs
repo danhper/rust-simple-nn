@@ -7,8 +7,8 @@ use linalg::{Matrix};
 
 pub struct TrainOptions {
     pub shuffle: bool,
-    pub epochs: usize,
-    pub batch_size: usize
+    pub epochs: u64,
+    pub batch_size: u64
 }
 
 impl TrainOptions {
@@ -20,7 +20,7 @@ impl TrainOptions {
         }
     }
 
-    pub fn with_epochs(mut self, epochs: usize) -> TrainOptions {
+    pub fn with_epochs(mut self, epochs: u64) -> TrainOptions {
         self.epochs = epochs;
         self
     }
@@ -30,7 +30,7 @@ impl TrainOptions {
         self
     }
 
-    pub fn with_batch_size(mut self, batch_size: usize) -> TrainOptions {
+    pub fn with_batch_size(mut self, batch_size: u64) -> TrainOptions {
         self.batch_size = batch_size;
         self
     }
@@ -41,12 +41,12 @@ pub struct Network<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Op
     objective: Obj,
     optimizer: Opt,
     output: Box<Out>,
-    formatter: Formatter
+    formatter: Box<Formatter>
 }
 
 impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone> Network<Out, Obj, Opt> {
     pub fn new(layers: Vec<Box<layers::Layer>>, objective: Obj,
-               optimizer: Opt, output: Box<Out>, formatter: Formatter) -> Network<Out, Obj, Opt> {
+               optimizer: Opt, output: Box<Out>, formatter: Box<Formatter>) -> Network<Out, Obj, Opt> {
         Network {
             layers: layers,
             objective: objective,
@@ -70,8 +70,9 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
 
     pub fn fit(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: TrainOptions) {
         for i in 0..train_options.epochs {
-            println!("\nTraining epoch {} / {}", i + 1, train_options.epochs);
+            self.formatter.output_epoch_start(i + 1, train_options.epochs);
             self.process_and_run_epoch(input, expected, &train_options);
+            self.formatter.output_epoch_end(i + 1, train_options.epochs);
         }
     }
 
@@ -87,19 +88,19 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
     }
 
     fn run_epoch(&mut self, input: &Matrix<f64>, expected: &Matrix<f64>, train_options: &TrainOptions) {
-        let total_batches = (input.rows / train_options.batch_size) + ((input.rows % train_options.batch_size != 0) as usize);
+        let rows = input.rows as u64;
+        let total_batches = (rows / train_options.batch_size) + ((rows % train_options.batch_size != 0) as u64);
         let mut results = TrainingResults::default();
         results.total_count = input.rows as u64;
         for n in 0..total_batches {
-            let start = n * train_options.batch_size;
-            let end = cmp::min(train_options.batch_size * (n + 1), input.rows);
+            let start = (n * train_options.batch_size) as usize;
+            let end = cmp::min(train_options.batch_size * (n + 1), rows) as usize;
             let x = input.slice_rows(start..end);
             let y = expected.slice_rows(start..end);
 
             let (hit_count, miss_count, loss) = self.train_on_batch(&x, &y);
-            // TODO: use callbacks or something to handle this
             self.update_result(&mut results, (end - start) as u64, hit_count, miss_count, loss);
-            print!("{}\r", self.formatter.progress(&results))
+            self.formatter.output_results(&results);
         }
     }
 

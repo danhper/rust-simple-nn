@@ -28,3 +28,9 @@ fn bench_matrix_matmul(b: &mut Bencher) {
     let other = Matrix::<f64>::random(120, 80, -20.0, 20.0);
     b.iter(|| matrix.matmul(&other));
 }
+
+#[bench]
+fn bench_matrix_t(b: &mut Bencher) {
+    let matrix = Matrix::<f64>::random(200, 120, -10.0, 10.0);
+    b.iter(|| matrix.t());
+}

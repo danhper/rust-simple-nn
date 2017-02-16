@@ -1,14 +1,20 @@
 use nn::measures::Measure;
 use nn::training_results::TrainingResults;
 
-pub struct Formatter {
+pub trait Formatter {
+    fn output_results(&self, results: &TrainingResults);
+    fn output_epoch_start(&self, epoch: u64, total_epochs: u64);
+    fn output_epoch_end(&self, current_epoch: u64, total_epochs: u64);
+}
+
+pub struct ProgressFormatter {
     pub measures: Vec<Box<Measure>>,
     pub progress_width: u64
 }
 
-impl Formatter {
-    pub fn new() -> Formatter {
-        Formatter { measures: vec![], progress_width: 40 }
+impl ProgressFormatter {
+    pub fn new() -> ProgressFormatter {
+        ProgressFormatter { measures: vec![], progress_width: 40 }
     }
 
     pub fn add_measure(&mut self, measure: Box<Measure>) {
@@ -37,5 +43,19 @@ impl Formatter {
             .map(|m| format!("{} = {}", m.name(), m.format(m.compute(results))))
             .collect::<Vec<String>>()
             .join(", ")
+    }
+}
+
+impl Formatter for ProgressFormatter {
+    fn output_results(&self, results: &TrainingResults) {
+        print!("{}\r", self.progress(&results))
+    }
+
+    fn output_epoch_start(&self, current_epoch: u64, total_epochs: u64) {
+        println!("Training epoch {} / {}", current_epoch, total_epochs);
+    }
+
+    fn output_epoch_end(&self, _current_epoch: u64, _total_epochs: u64) {
+        println!("")
     }
 }

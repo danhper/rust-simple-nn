@@ -1,19 +1,19 @@
 extern crate simple_nn;
 
-use simple_nn::nn::{Formatter, measures};
+use simple_nn::nn::measures;
 use simple_nn::nn::training_results::TrainingResults;
+use simple_nn::nn::formatter::{ProgressFormatter};
 
 #[test]
-fn formatter_add_measure() {
-    let mut formatter = Formatter::new();
+fn progress_formatter_add_measure() {
+    let mut formatter = ProgressFormatter::new();
     formatter.add_measure(measures::Accuracy::new());
     assert_eq!(formatter.measures.len(), 1)
 }
 
-
 #[test]
-fn formatter_format() {
-    let mut formatter = Formatter::new();
+fn progress_formatter_format() {
+    let mut formatter = ProgressFormatter::new();
     formatter.add_measure(measures::Accuracy::new());
     formatter.add_measure(measures::MeanLoss::new());
     let training_results = TrainingResults {
@@ -29,8 +29,8 @@ fn formatter_format() {
 }
 
 #[test]
-fn formatter_progress() {
-    let mut formatter = Formatter::new();
+fn progress_formatter_progress() {
+    let mut formatter = ProgressFormatter::new();
     formatter.add_measure(measures::Accuracy::new());
     formatter.add_measure(measures::MeanLoss::new());
     let mut training_results = TrainingResults {

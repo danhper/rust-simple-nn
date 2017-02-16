@@ -19,12 +19,8 @@ fn main() {
     let x_train = utils::loader::matrix_from_txt("data/train_x_60000x784_float32.txt").unwrap().transform(|v: f64| v / 255.0);
     let y_train = utils::loader::matrix_from_txt("data/train_y_60000_int32.txt").unwrap().to_one_hot(10);
 
-    println!("start training...");
-
-    let train_options = nn::TrainOptions::default().with_epochs(3).with_batch_size(256);
+    let train_options = nn::TrainOptions::default().with_epochs(3).with_batch_size(64);
     network.fit(&x_train, &y_train, train_options);
-
-    println!("training done");
 
     println!("loading test data...");
 

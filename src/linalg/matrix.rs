@@ -19,11 +19,22 @@ impl <T: Clone + Default> Matrix<T> {
             elements: elems,
         }
     }
+
+    pub fn t(&self) -> Matrix<T> {
+        let mut elems: Vec<T> = Vec::with_capacity(self.rows * self.columns);
+        elems.resize(self.rows * self.columns, T::default());
+        for row in 0..self.rows {
+            for col in 0..self.columns {
+                elems[col * self.rows + row] = self.at(row, col);
+            }
+        }
+        Matrix::new_from(self.columns, self.rows, elems)
+    }
 }
 
 impl<T> Matrix<T> {
     pub fn new_from(rows: usize, columns: usize, elements: Vec<T>) -> Matrix<T> {
-        assert!(rows * columns == elements.len());
+        debug_assert!(rows * columns == elements.len());
         Matrix {
             rows: rows,
             columns: columns,
@@ -47,8 +58,8 @@ impl<T> Matrix<T> {
     }
 
     pub fn set_at(&mut self, row: usize, column: usize, value: T) {
-        assert!(row < self.rows, "row is too large");
-        assert!(column < self.columns, "column is too large");
+        debug_assert!(row < self.rows, "row is too large");
+        debug_assert!(column < self.columns, "column is too large");
         self.elements[row * self.columns + column] = value
     }
 
@@ -57,7 +68,7 @@ impl<T> Matrix<T> {
     }
 
     pub fn assert_same_size(&self, other: &Matrix<T>) {
-        assert!(self.rows == other.rows && self.columns == other.columns,
+        debug_assert!(self.rows == other.rows && self.columns == other.columns,
                 "matrix should have same size, given {}x{} and {}x{}",
                 self.rows, self.columns, other.rows, other.columns)
     }
@@ -65,7 +76,7 @@ impl<T> Matrix<T> {
 
 impl Matrix<usize> {
     pub fn to_one_hot<T: From<u8> + Clone + Default>(&self, classes: usize) -> Matrix<T> {
-        assert!(self.columns == 1, "matrix must be Nx1 to change to one_hot");
+        debug_assert!(self.columns == 1, "matrix must be Nx1 to change to one_hot");
         let mut matrix = Matrix::new(self.elements.len(), classes);
         for i in 0..self.elements.len() {
             matrix.set_at(i, self.elements[i], T::from(1));
@@ -76,7 +87,7 @@ impl Matrix<usize> {
 
 impl<T: Default + Clone + ops::Add<Output = T> + ops::Mul<Output = T>> Matrix<T> {
     pub fn matmul(&self, other: &Matrix<T>) -> Matrix<T> {
-        assert!(self.columns == other.rows, "trying to multiply {}x{} with {}x{}",
+        debug_assert!(self.columns == other.rows, "trying to multiply {}x{} with {}x{}",
             self.rows, self.columns, other.rows, other.columns);
         let mut output = Matrix::new(self.rows, other.columns);
         for row in 0..self.rows {
@@ -103,25 +114,15 @@ impl<T: Clone> Matrix<T> {
 
     fn make_op<F>(&self, other: &Matrix<T>, op: F) -> Matrix<T>
             where F: FnMut(T, T) -> T {
-        let mut output = Matrix::new_from(self.rows, self.columns, self.elements.to_owned());
+        let mut output = self.clone();
         output.make_mut_op(other, op);
         output
     }
 
     pub fn at(&self, row: usize, column: usize) -> T {
-        assert!(row < self.rows, "row is too large");
-        assert!(column < self.columns, "column is too large");
+        debug_assert!(row < self.rows, "row is too large");
+        debug_assert!(column < self.columns, "column is too large");
         self.elements[row * self.columns + column].clone()
-    }
-
-    pub fn t(&self) -> Matrix<T> {
-        let mut elems: Vec<T> = Vec::with_capacity(self.rows * self.columns);
-        for col in 0..self.columns {
-            for row in 0..self.rows {
-                elems.push(self.at(row, col))
-            }
-        }
-        Matrix::new_from(self.columns, self.rows, elems)
     }
 
     pub fn reduce<F, B>(&self, init: B, mut f: F) -> B
