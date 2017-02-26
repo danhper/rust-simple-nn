@@ -124,7 +124,8 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         let ref optimizer = self.optimizer.clone();
         for (index, gradient) in gradients {
             let mut weights = self.get_mut_layer(index).get_mut_weights();
-            optimizer.apply_gradients(weights, &gradient, input.rows);
+            let normalized_gradient = gradient.transform(|v| v / (input.rows as f64));
+            optimizer.apply_gradients(weights, &normalized_gradient);
         }
         let last = results.last().unwrap();
         let loss = self.loss_from_probs(&last, expected);

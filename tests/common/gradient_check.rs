@@ -22,6 +22,17 @@ fn set_weight<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: op
     network.get_mut_layer(layer_index).get_mut_weights().set_at(row, col, val);
 }
 
+fn is_gradient_valid(numerical: f64, backprop: f64) -> bool {
+    let denominator = numerical.max(backprop);
+    let diff = (numerical - backprop).abs();
+    let max_diff = 1e-6;
+    if denominator == 0.0 {
+        diff < max_diff
+    } else {
+        diff / denominator < max_diff
+    }
+}
+
 #[allow(dead_code)]
 pub fn check_gradients<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &mut Network<Out, Obj, Opt>) {
     let check_count = 50;
@@ -54,8 +65,8 @@ pub fn check_gradients<Out: layers::OutputLayer, Obj: objectives::Objective<Out>
             let grad = (plus_cost - minus_cost) / (2.0 * epsilon);
             let backprop_grad = backprop_grads.at(row, col);
 
-            let diff = (grad - backprop_grad).abs();
-            assert!(diff < 1e-5, "gradient check failed, numerical: {}, backprop: {}", grad, backprop_grad);
+            let valid = is_gradient_valid(grad, backprop_grad);
+            assert!(valid, "gradient check failed, numerical: {}, backprop: {}", grad, backprop_grad);
         }
     }
 }
