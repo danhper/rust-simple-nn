@@ -1,6 +1,6 @@
 use std::cmp;
 
-use nn::{layers, objectives, optimizers, functions};
+use nn::{layers, objectives, optimizers};
 use nn::formatter::Formatter;
 use nn::training_results::TrainingResults;
 use linalg::{Matrix};
@@ -129,8 +129,27 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         }
         let last = results.last().unwrap();
         let loss = self.loss_from_probs(&last, expected);
-        let (hit_count, miss_count) = functions::hit_miss_from_probs(&last, expected);
+        let (hit_count, miss_count) = self.hit_miss_from_probs(&last, expected);
         (hit_count, miss_count, loss)
+    }
+
+    pub fn hit_miss_from_probs<T: From<u8> + Clone + PartialEq>(&self, probs: &Matrix<f64>, expected: &Matrix<T>) -> (u64, u64)
+            where f64: From<T> {
+        let expected_normalized = self.objective.predict_from_probs(&expected.cast());
+        self.objective.predict_from_probs(probs).reduce_with_index((0, 0), |(hit, miss), v, row, _col| {
+            if { expected_normalized.at(row, 0) == v } { (hit + 1, miss) } else { (hit, miss + 1) }
+        })
+    }
+
+    pub fn accuracy_from_probs<T: From<u8> + Clone + PartialEq>(&self, probs: &Matrix<f64>, expected: &Matrix<T>) -> f64
+            where f64: From<T> {
+        let (hit, miss) = self.hit_miss_from_probs(probs, expected);
+        (hit as f64) / (hit as f64 + miss as f64)
+    }
+
+    pub fn predict(&self, input: &Matrix<f64>) -> Matrix<u8> {
+        let probs = self.predict_probs(input);
+        self.objective.predict_from_probs(&probs)
     }
 
     pub fn predict_probs(&self, input: &Matrix<f64>) -> Matrix<f64> {
@@ -139,18 +158,10 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         output.clone()
     }
 
-    pub fn predict(&self, input: &Matrix<f64>) -> Matrix<usize> {
+    pub fn accuracy<T: From<u8> + Clone + PartialEq>(&self, input: &Matrix<f64>, expected: &Matrix<T>) -> f64
+            where f64: From<T> {
         let probs = self.predict_probs(input);
-        functions::argmax(&probs)
-    }
-
-    pub fn accuracy<T: From<u8> + Clone + PartialEq>(&self, input: &Matrix<f64>, expected: &Matrix<T>) -> f64 {
-        let probs = self.predict_probs(input);
-        functions::accuracy_from_probs(&probs, expected)
-    }
-
-    pub fn accuracy_from_probs<T: From<u8> + Clone + PartialEq>(&self, probs: &Matrix<f64>, expected: &Matrix<T>) -> f64 {
-        functions::accuracy_from_probs(&probs, expected)
+        self.accuracy_from_probs(&probs, expected)
     }
 
     pub fn mean_loss(&self, input: &Matrix<f64>, expected: &Matrix<f64>) -> f64 {
@@ -186,7 +197,7 @@ impl<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers:
         let mut back_results = vec![self.objective.delta(&results[results.len() - 1], expected)];
         let last_layer_index = self.layers_count();
         for i in (0..last_layer_index).rev() {
-            let gradient = self.layers[i].delta(&results[i], &results[i + 1], &back_results[back_results.len() - 1]);
+            let gradient = self.layers[i].delta(&results[i + 1], &back_results[back_results.len() - 1]);
             if self.layers[i].has_trainable_weights() {
                 let gradient = results[i].t().matmul(&back_results[back_results.len() - 1]);
                 gradients.push((i, gradient));

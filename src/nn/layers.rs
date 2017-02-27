@@ -5,7 +5,7 @@ pub trait OutputLayer: Layer {}
 
 pub trait Layer {
     fn compute(&self, incoming: &Matrix<f64>) -> Matrix<f64>;
-    fn delta(&self, incoming: &Matrix<f64>, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64>;
+    fn delta(&self, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64>;
     fn has_trainable_weights(&self) -> bool {
         false
     }
@@ -38,9 +38,9 @@ impl Layer for Relu {
         self.compute_in_out(incoming, incoming)
     }
 
-    fn delta(&self, incoming: &Matrix<f64>, _outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
-        incoming.assert_same_size(above);
-        self.compute_in_out(incoming, above)
+    fn delta(&self, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
+        outgoing.assert_same_size(above);
+        self.compute_in_out(outgoing, above)
     }
 }
 
@@ -88,7 +88,7 @@ impl Layer for Dense {
         incoming.matmul(&self.weights)
     }
 
-    fn delta(&self, _incoming: &Matrix<f64>, _outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
+    fn delta(&self, _outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
         above.matmul(&self.weights.t())
     }
 }
@@ -107,7 +107,7 @@ impl Layer for Softmax {
         functions::softmax(incoming)
     }
 
-    fn delta(&self, _incoming: &Matrix<f64>, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
+    fn delta(&self, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
         let delta = outgoing * above;
         let sums = delta.reduce_rows(0.0, |acc, v| acc + v);
         delta.transform_with_index(|v, row, col| v - outgoing.at(row, col) * sums.at(row, 0))
@@ -115,3 +115,25 @@ impl Layer for Softmax {
 }
 
 impl OutputLayer for Softmax {}
+
+
+#[derive(Debug, Clone)]
+pub struct Sigmoid;
+
+impl Sigmoid {
+    pub fn new() -> Box<Sigmoid> {
+        Box::new(Sigmoid {})
+    }
+}
+
+impl Layer for Sigmoid {
+    fn compute(&self, incoming: &Matrix<f64>) -> Matrix<f64> {
+        incoming.transform(|v| 1.0 / (1.0 + (-v).exp()))
+    }
+
+    fn delta(&self, outgoing: &Matrix<f64>, above: &Matrix<f64>) -> Matrix<f64> {
+        outgoing.transform_with_index(|v, row, col| v * (1.0 - v) * above.at(row, col))
+    }
+}
+
+impl OutputLayer for Sigmoid {}

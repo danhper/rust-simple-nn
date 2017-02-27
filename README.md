@@ -59,7 +59,7 @@ Help is very welcome.
 ### Activations
 
 - [x] ReLU
-- [ ] sigmoid
+- [x] sigmoid
 - [ ] tanh
 - [ ] softplus
 - [ ] softsign
@@ -67,6 +67,7 @@ Help is very welcome.
 ### Objectives
 
 - [x] Categorical Cross Entropy
+- [x] Binary Cross Entropy
 - [ ] Mean square
 - [ ] Poisson
 - [ ] KL divergence

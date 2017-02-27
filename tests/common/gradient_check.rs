@@ -2,7 +2,7 @@ use rand;
 use rand::distributions::{IndependentSample, Range};
 
 use simple_nn::{Network, objectives, optimizers, layers};
-use common::fixtures;
+use simple_nn::linalg::Matrix;
 
 fn get_layer_dim<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &Network<Out, Obj, Opt>, layer_index: usize) -> (usize, usize) {
     let layer = network.get_layer(layer_index);
@@ -34,13 +34,12 @@ fn is_gradient_valid(numerical: f64, backprop: f64) -> bool {
 }
 
 #[allow(dead_code)]
-pub fn check_gradients<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>(network: &mut Network<Out, Obj, Opt>) {
+pub fn check_gradients<Out: layers::OutputLayer, Obj: objectives::Objective<Out>, Opt: optimizers::Optimizer + Clone>
+        (network: &mut Network<Out, Obj, Opt>, x: &Matrix<f64>, y: &Matrix<f64>) {
     let check_count = 50;
-    let x = fixtures::load_matrix("mnist_sample.txt").transform(|x: f64| x / 255.0);
-    let y = fixtures::load_matrix("mnist_sample_labels.txt").to_one_hot(10);
 
-    let results = network.forward(&x);
-    let gradients = network.backward(&results, &y);
+    let results = network.forward(x);
+    let gradients = network.backward(&results, y);
     let epsilon = 0.0001;
 
     let mut rng = rand::thread_rng();
@@ -57,9 +56,9 @@ pub fn check_gradients<Out: layers::OutputLayer, Obj: objectives::Objective<Out>
 
             let original = get_weight(network, layer_index, row, col);
             set_weight(network, layer_index, row, col, original + epsilon);
-            let plus_cost = network.loss(&x, &y);
+            let plus_cost = network.loss(x, y);
             set_weight(network, layer_index, row, col, original - epsilon);
-            let minus_cost = network.loss(&x, &y);
+            let minus_cost = network.loss(x, y);
             set_weight(network, layer_index, row, col, original);
 
             let grad = (plus_cost - minus_cost) / (2.0 * epsilon);

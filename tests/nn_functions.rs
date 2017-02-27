@@ -49,7 +49,7 @@ fn functions_softmax_cross_entropy() {
         0.865385, -2.06612, -1.24789, -1.38634, -1.23427,
         2.53362, -1.325, -1.48494, 0.0346661, 1.28081], true);
 
-    let labels = Matrix::new_from(2, 1, vec![8, 9], true).to_one_hot(10);
+    let labels = Matrix::new_from(2, 1, vec![8 as usize, 9], true).to_one_hot(10);
     let expected = vec![0.183565, 1.76642];
     let output = nn::functions::softmax_cross_entropy(&input, &labels);
     for i in 0..2 {
@@ -61,7 +61,7 @@ fn functions_softmax_cross_entropy() {
 fn functions_cross_entropy_from_probs() {
     let input = Matrix::new_from(1, 7, vec![
          0.02364054, 0.06426166, 0.1746813, 0.474833, 0.02364054, 0.06426166, 0.1746813 ], true);
-    let labels = Matrix::new_from(1, 1, vec![1], true).to_one_hot(10);
+    let labels = Matrix::new_from(1, 1, vec![1 as usize], true).to_one_hot(10);
     let expected = 2.74479212;
     let output = nn::functions::cross_entropy_from_probs(&input, &labels);
     assert!((output.at(0, 0) - expected).abs() < 1e-5);
@@ -69,21 +69,10 @@ fn functions_cross_entropy_from_probs() {
 
 #[test]
 fn functions_argmax() {
-    let input = Matrix::new_from(2, 4, vec![
+    let input = Matrix::<f64>::new_from(2, 4, vec![
         1.0, 2.0, 3.0, 1.0, -1.0, 8.0, 2.0, 1.0
     ], true);
     let expected = Matrix::new_from(2, 1, vec![2, 1], true);
     let output = nn::functions::argmax(&input);
     assert_eq!(output, expected);
-}
-
-
-#[test]
-fn functions_accuracy_from_probs() {
-    let input = Matrix::new_from(2, 4, vec![
-        0.2, 0.3, 0.4, 0.1, 0.1, 0.7, 0.1, 0.1
-    ], true);
-    let labels: Matrix<usize> = Matrix::new_from(2, 1, vec![1, 1], true).to_one_hot(4);
-    let accuracy = nn::functions::accuracy_from_probs(&input, &labels);
-    assert!((accuracy - 0.5).abs() < 1e-5);
 }

@@ -3,6 +3,8 @@ extern crate simple_nn;
 
 mod common;
 
+use common::fixtures;
+
 use simple_nn::{layers, objectives, optimizers, NetworkBuilder, Matrix};
 
 #[test]
@@ -37,16 +39,35 @@ fn network_forward() {
 
 #[test]
 #[ignore]
-fn network_backward() {
+fn network_softmax_backward() {
     let mut network = NetworkBuilder::new()
         .add(layers::Dense::new(784, 100))
         .add(layers::Relu::new())
         .add(layers::Dense::new(100, 100))
-        .add(layers::Relu::new())
+        .add(layers::Sigmoid::new())
         .add(layers::Dense::new(100, 10))
         .add_output(layers::Softmax::new())
         .minimize(objectives::CrossEntropy::new())
         .with(optimizers::SGD::new(0.5))
         .build();
-    common::check_gradients(&mut network)
+
+    let x = fixtures::load_matrix("mnist_sample.txt").transform(|x: f64| x / 255.0);
+    let y = fixtures::load_matrix("mnist_sample_labels.txt").to_one_hot(10);
+    common::check_gradients(&mut network, &x, &y);
+}
+
+#[test]
+#[ignore]
+fn network_sigmoid_backward() {
+    let mut network = NetworkBuilder::new()
+        .add(layers::Dense::new(2, 5))
+        .add(layers::Sigmoid::new())
+        .add(layers::Dense::new(5, 1))
+        .add_output(layers::Sigmoid::new())
+        .minimize(objectives::BinaryCrossEntropy::new())
+        .with(optimizers::SGD::new(0.5))
+        .build();
+
+    let (x, y) = fixtures::generate_xor_data(1000);
+    common::check_gradients(&mut network, &x, &y);
 }

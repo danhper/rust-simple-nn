@@ -44,12 +44,17 @@ impl <T: Clone + Default> Matrix<T> {
 }
 
 impl<T> Matrix<T> {
-    pub fn new_from(rows: usize, columns: usize, elements: Vec<T>, row_major: bool) -> Matrix<T> {
+    pub fn new_from<U>(rows: usize, columns: usize, elements: Vec<U>, row_major: bool) -> Matrix<T>
+            where T: From<U> {
         debug_assert!(rows * columns == elements.len());
+        let mut elems = Vec::with_capacity(elements.len());
+        for elem in elements {
+            elems.push(T::from(elem));
+        }
         Matrix {
             rows: rows,
             columns: columns,
-            elements: elements,
+            elements: elems,
             row_major: row_major
         }
     }
@@ -126,6 +131,10 @@ impl<T> Matrix<T>
 }
 
 impl<T: Clone> Matrix<T> {
+    pub fn cast<U: From<T>>(&self) -> Matrix<U> {
+        Matrix::new_from(self.rows, self.columns, self.elements.to_owned(), self.row_major)
+    }
+
     fn make_mut_op<F>(&mut self, other: &Matrix<T>, mut op: F)
             where F: FnMut(T, T) -> T {
         self.assert_same_size(other);
