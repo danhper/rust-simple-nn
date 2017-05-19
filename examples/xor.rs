@@ -23,9 +23,9 @@ fn generate_xor_data(n: usize) -> (Matrix<f64>, Matrix<f64>) {
 
 fn main() {
     let mut network = nn::NetworkBuilder::new()
-        .add(nn::layers::Dense::new(2, 3))
+        .add(nn::layers::Dense::new(2, 10))
         .add(nn::layers::Sigmoid::new())
-        .add(nn::layers::Dense::new(3, 1))
+        .add(nn::layers::Dense::new(10, 1))
         .add_output(nn::layers::Sigmoid::new())
         .minimize(nn::objectives::BinaryCrossEntropy::new())
         .with(nn::optimizers::SGD::new(0.1))
