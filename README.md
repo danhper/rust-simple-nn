@@ -1,5 +1,5 @@
 # simple_nn
-[![Build Status](https://travis-ci.org/tuvistavie/rust-simple-nn.svg?branch=master)](https://travis-ci.org/tuvistavie/rust-simple-nn)
+[![Build Status](https://travis-ci.org/danhper/rust-simple-nn.svg?branch=master)](https://travis-ci.org/danhper/rust-simple-nn)
 
 Simple neural network implementation in Rust.
 
