@@ -4,7 +4,7 @@
 Simple neural network implementation in Rust.
 
 NOTE: I wanted to give Rust a try, and decided to try implementing a simple NN framework,
-but this is not meant to be used in production (it is way too slow for now anyway).
+but this is not meant to be used in production (the current implementation is way too slow for now anyway).
 
 Here is a small example for the mnist dataset.
 
